@@ -1,0 +1,61 @@
+services:
+    # ── MongoDB ──────────────────────────────────────────────────────────────────
+    db:
+        image: mongo:7
+        container_name: mongo
+        restart: unless-stopped
+        environment:
+            MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
+            MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+            MONGO_INITDB_DATABASE: ${MONGO_DB_NAME}
+        volumes:
+            - mongo_data:/data/db
+        networks:
+            - app-network
+        healthcheck:
+            test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+
+    # ── Backend (hot reload via node --watch) ─────────────────────────────────────
+    backend:
+        image: node:20-alpine
+        container_name: backend
+        working_dir: /app
+        volumes:
+            - ./backend:/app # mount local source directly
+            - /app/node_modules # anonymous volume so container modules aren't overwritten by host
+        ports:
+            - "5000:5000"
+        environment:
+            NODE_ENV: development
+            PORT: 5000
+            MONGO_URI: mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@db:27017/${MONGO_DB_NAME}?authSource=admin
+        depends_on:
+            db:
+                condition: service_healthy
+        networks:
+            - app-network
+        command: sh -c "npm install && npx nodemon --legacy-watch src/index.js"
+
+    # ── Frontend (Vite dev server with HMR) ───────────────────────────────────────
+    frontend:
+        image: node:20-alpine
+        container_name: frontend
+        working_dir: /app
+        volumes:
+            - ./frontend:/app # mount local source directly
+            - /app/node_modules # anonymous volume so container modules aren't overwritten by host
+        ports:
+            - "3001:3001"
+        networks:
+            - app-network
+        command: sh -c "npm install && npm run dev -- --host"
+
+volumes:
+    mongo_data:
+
+networks:
+    app-network:
+        driver: bridge

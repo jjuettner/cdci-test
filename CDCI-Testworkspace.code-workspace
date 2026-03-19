@@ -1,0 +1,16 @@
+{
+	"folders": [
+		{
+			"name": "cdci-test",
+			"path": "."
+		},
+		{
+			"name": "backend",
+			"path": "backend"
+		},
+		{
+			"name": "frontend",
+			"path": "frontend"
+		}
+	]
+}
